@@ -206,6 +206,7 @@ module stack_cpu (
 
   wire move_next;
   wire stack_accept;
+  wire stack_pop;
   op_decoder dec(
     .clk(clk),
     .rst(rst),
