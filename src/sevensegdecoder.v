@@ -11,7 +11,7 @@
       -- 4 --
 */
 
-module decoder (
+module sevensegdecoder (
     input wire [3:0] binary,
     output reg [6:0] segments
 );
