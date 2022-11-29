@@ -136,3 +136,53 @@ async def pop_op(dut):
     await wait_one_cycle(dut)
     assert int(dut.io_outs.value) == 0x76
 
+
+@cocotb.test()
+async def save_op(dut):
+    await select_cpu(dut)
+    await reset_for_start(dut)
+
+    dut.mode.value = 3
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x7) # 0x7
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x6) # 0x6
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x5) # 0x5
+    await latch_input(dut, 0x3) # SAVE
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+
+    await wait_one_cycle(dut)
+    assert int(dut.io_outs.value) == 0x7
+
+
+@cocotb.test()
+async def load_op(dut):
+    await select_cpu(dut)
+    await reset_for_start(dut)
+
+    dut.mode.value = 3
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x7) # 0x7
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x6) # 0x6
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x5) # 0x5
+    await latch_input(dut, 0x3) # SAVE
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x4) # 0x4
+    await latch_input(dut, 0x1) # PUSH
+    await latch_input(dut, 0x5) # 0x5
+    await latch_input(dut, 0x4) # LOAD
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+    await latch_input(dut, 0x0) # 0x0
+
+    await wait_one_cycle(dut)
+    assert int(dut.io_outs.value) == 0x46
+

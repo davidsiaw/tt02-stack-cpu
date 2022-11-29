@@ -9,7 +9,11 @@ module op_decoder (
   input wire [3:0] inbits,
   output reg move_next,
   output reg stack_accept,
-  output reg stack_pop
+  output reg stack_pop,
+  output reg [2:0] stack_in_select,
+  output reg mem_write,
+  output reg mem_load,
+  output reg mem_load_addr
 );
 
   reg [2:0] op_progress;
@@ -22,6 +26,10 @@ module op_decoder (
       move_next <= 1;
       stack_accept <= 0;
       stack_pop <= 0;
+      mem_write <= 0;
+      mem_load <= 0;
+      stack_in_select <= 0;
+      mem_load_addr <= 0;
     end
     else begin
       op_progress <= op_progress + 1;
@@ -33,6 +41,7 @@ module op_decoder (
         stack_accept <= 0;
       end
       else if (curop == 1) begin
+        // PUSH
         move_next <= 0;
         if (op_progress == 0) begin
           stack_accept <= 1;
@@ -40,12 +49,54 @@ module op_decoder (
         end
       end
       else if (curop == 2) begin
+        // POP
         move_next <= 0;
         if (op_progress == 0) begin
           stack_pop <= 1;
           move_next <= 1;
         end
       end
+
+      else if (curop == 3) begin
+        // SAVE
+        move_next <= 0;
+        if (op_progress == 0) begin
+          stack_pop <= 1;
+          mem_load_addr <= 1;
+        end
+        else if (op_progress == 1) begin
+          mem_load_addr <= 0;
+          mem_write <= 1;
+        end
+        else if (op_progress == 2) begin
+          mem_write <= 0;
+          stack_pop <= 0;
+          move_next <= 1;
+        end
+      end
+
+      else if (curop == 4) begin
+        // LOAD
+        move_next <= 0;
+        if (op_progress == 0) begin
+          mem_load_addr <= 1;
+          stack_pop <= 1;
+        end
+        else if (op_progress == 1) begin
+          mem_load_addr <= 0;
+          stack_pop <= 0;
+
+          stack_accept <= 1;
+          stack_in_select <= 1;
+        end
+        else if (op_progress == 2) begin
+          stack_accept <= 0;
+          stack_in_select <= 0;
+          
+          move_next <= 1;
+        end
+      end
+
       else begin
         move_next <= 1;
       end
@@ -207,14 +258,39 @@ module stack_cpu (
   wire move_next;
   wire stack_accept;
   wire stack_pop;
+  wire ram_write;
+  wire ram_load;
+  wire [2:0] stack_in_select;
+  wire ram_load_addr;
   op_decoder dec(
     .clk(clk),
     .rst(rst),
     .inbits(inbits),
     .move_next(move_next),
+    .stack_in_select(stack_in_select),
     .stack_accept(stack_accept),
-    .stack_pop(stack_pop)
+    .stack_pop(stack_pop),
+    .mem_write(ram_write),
+    .mem_load(ram_load),
+    .mem_load_addr(ram_load_addr)
   );
+
+
+  wire [3:0] stack_in;
+  wire [3:0] ram_out;
+  input_selector sel(
+  .a(in_dff[3:0]),
+  .b(ram_out),
+  .c(4'h0),
+  .d(4'h0),
+  .e(4'h0),
+  .f(4'h0),
+  .g(4'h0),
+  .h(4'h0),
+  .s(stack_in_select),
+  .q(stack_in)
+);
+
 
   wire [3:0] v0, v1;
   stack_register #(
@@ -224,17 +300,15 @@ module stack_cpu (
     .rst(rst),
     .stack_accept(stack_accept),
     .stack_pop(stack_pop),
-    .in(in_dff[3:0]),
+    .in(stack_in),
     .v0(v0), .v1(v1)
   );
 
   reg [3:0] ram_address;
-  wire [3:0] ram_out;
-  reg write;
   memory ram(
     .clk(clk),
     .rst(rst),
-    .mode(write),
+    .mode(ram_write),
     .address(ram_address),
     .data_in(v0),
     .data_out(ram_out)
@@ -247,7 +321,6 @@ module stack_cpu (
       out_dff <= 0;
       program_counter <= 0;
       ram_address <= 0;
-      write <= 0;
 
     end
     else begin
@@ -255,6 +328,10 @@ module stack_cpu (
 
       if (move_next) begin
         program_counter <= program_counter + 1;
+      end
+
+      if (ram_load_addr) begin
+        ram_address <= v0;
       end
 
     end
